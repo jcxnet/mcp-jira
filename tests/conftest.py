@@ -9,6 +9,7 @@ again with the same key.
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 import pytest
@@ -96,7 +97,10 @@ class MockRouter:
         headers: dict[str, str] | None = None,
     ) -> None:
         """Register or override a route. Last registration wins."""
-        self._routes[(method.upper(), url)] = httpx.Response(
+        # Keys are matched against ``request.url.path`` in ``_handle``, so a
+        # full URL is normalized to its path component.
+        path = urlparse(url).path if "://" in url else url
+        self._routes[(method.upper(), path)] = httpx.Response(
             status, json=payload, headers=headers or {}
         )
 
