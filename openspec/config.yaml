@@ -48,7 +48,7 @@ rules:
     test_command: "uv run pytest"
   verify:
     test_command: "uv run pytest"
-    build_command: "uv run python -m compileall mcp_jira"
+    build_command: "uv run python -m compileall src/mcp_jira"
     coverage_threshold: 0
   archive:
     - Warn before merging destructive deltas
