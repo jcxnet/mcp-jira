@@ -63,9 +63,9 @@ Chain strategy: stacked-to-main
 
 ## Phase 5: CLI & Wizard
 
-- [ ] **5.1** Create `src/mcp_jira/cli.py` — argparse: default `run` (start server), `setup` subcommand; wired to console script.
+- [x] **5.1** Create `src/mcp_jira/cli.py` — argparse: default `run` (start server), `setup` subcommand; wired to console script.
   **Deps**: 4.2, 5.2. **AC**: toolchain §console script — `uv run mcp-jira setup --help` exits 0. **Tests**: CLI parsing via subprocess or argparse capture.
-- [ ] **5.2** Create `src/mcp_jira/wizard.py` — prompt URL + hidden PAT (`getpass`), `/myself` connectivity test, write config with `0600` (`os.chmod`), report success/failure; non-interactive (no TTY, no config) prints config path + guidance and exits non-zero; nothing written on connectivity failure.
+- [x] **5.2** Create `src/mcp_jira/wizard.py` — prompt URL + hidden PAT (`getpass`), `/myself` connectivity test, write config with `0600` (`os.chmod`), report success/failure; non-interactive (no TTY, no config) prints config path + guidance and exits non-zero; nothing written on connectivity failure.
   **Deps**: 2.1, 2.2. **AC**: server-config §setup wizard scenarios (interactive 0600 + success report; connectivity failure nothing written; non-interactive path + non-zero exit). **Tests**: unit — 0600 mode asserted, non-interactive exit code, no write on failure.
 
 ## Phase 6: Testing & Docs
