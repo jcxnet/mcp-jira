@@ -59,6 +59,40 @@ terminal it prints the config path plus guidance and exits non-zero.
 `list_fields` — contracts in PRD §3.1. Custom fields are accepted by display
 name or raw `customfield_XXXXX` id in get/create/update.
 
+## Usage examples
+
+Once your agent is connected, ask it things like:
+
+| You ask | Tools used | What happens |
+|---|---|---|
+| "Find open bugs assigned to me" | `search_issues` | JQL `assignee = currentUser() AND status = Open AND type = Bug`, capped at 100 results |
+| "Show PROJ-123" | `get_issue` | Fetches the issue with `expand=transitions` so next-step transitions are visible |
+| "Create a bug: 'Login fails on Firefox'" | `create_issue` | Creates the issue and returns its key |
+| "Set PROJ-123's priority to High" | `update_issue` | Updates the `Priority` field (accepted by display name) |
+| "Move PROJ-123 to In Progress" | `transition_issue` | Transitions by name or ID from the issue's available list |
+| "Comment on PROJ-123: fixed in 2.4" | `add_comment` | Adds the comment body |
+| "What comments are on PROJ-123?" | `get_comments` | Lists comments in order |
+| "List my projects" | `list_projects` | Returns project keys + names |
+| "Which custom fields can I use?" | `list_fields` | Field id/name pairs; `allowed_values` normalized to `[]` |
+
+Concrete requests, with JQL:
+
+```
+Find issues in project PROJ where the summary mentions "login",
+ordered by priority, limit 20.
+→ search_issues(jql: "project = PROJ AND summary ~ 'login' ORDER BY priority", max_results: 20)
+```
+
+With custom fields (display name or raw id both work):
+
+```
+Create an incident in PROJ with "Severity" = Critical and "Impacted users" = 500.
+→ create_issue(project: "PROJ", summary: "...", fields: {"Severity": "Critical", "Impacted users": 500})
+```
+
+With `read_only: true` in the config, mutation prompts get a `READ_ONLY_MODE`
+error instead of reaching Jira — useful for read-only agents or CI.
+
 ## Error codes
 
 Every tool error surfaces with a stable code and a readable message — never a
