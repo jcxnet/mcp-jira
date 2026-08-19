@@ -20,6 +20,12 @@ import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
+from rich.markup import escape
+from rich.panel import Panel
+from rich.prompt import Confirm, Prompt
+
+from mcp_jira.ui import console, error_console
+
 _GUIDANCE = (
     "Run `mcp-jira install` on a terminal to register mcp-jira into MCP "
     "clients (OpenCode global, Claude CLI user scope, Claude Desktop)."
@@ -136,10 +142,10 @@ def _select_targets(
                 break
         if chosen:
             return list(dict.fromkeys(chosen))
-        print(
-            f"Invalid selection: {answer!r}; enter numbers separated by commas "
+        error_console.print(
+            f"Invalid selection: {escape(repr(answer))}; enter numbers separated by commas "
             "(or nothing for all).",
-            file=sys.stderr,
+            style="bold red",
         )
 
 
@@ -149,12 +155,26 @@ def _selection_prompt() -> str:
     return "\n".join(lines) + "\nSelection: "
 
 
+def _rich_targets_selected(p: str, options: Sequence[str], default: str) -> str:
+    """Rich free-text ``Prompt.ask``; no ``choices=`` so comma lists parse (D5).
+
+    The ``_select_targets`` loop stays the authoritative parser (empty→all,
+    dedupe, invalid→re-prompt); this adapter only styles the prompt.
+    """
+    return Prompt.ask(escape(p), default=default)
+
+
+def _rich_confirm(p: str) -> str:
+    """Rich ``Confirm.ask`` (default no) adapted to the ``"y"``/``"n"`` str contract."""
+    return "y" if Confirm.ask(escape(p), default=False) else "n"
+
+
 def run_installer(
     *,
     interactive: bool | None = None,
     config_paths: Callable[[], dict[str, Path]] | None = None,
     targets_selected: Callable[[str, Sequence[str], str], str] | None = None,
-    confirm: Callable[[str], str] = input,
+    confirm: Callable[[str], str] = _rich_confirm,
 ) -> int:
     """Run the installer; returns the process exit code (0 = success)."""
     if interactive is None:
@@ -163,7 +183,7 @@ def run_installer(
         print(_GUIDANCE)
         return 1
     try:
-        selected = _select_targets(targets_selected or (lambda p, o, d: input(p)), _IDS)
+        selected = _select_targets(targets_selected or _rich_targets_selected, _IDS)
         paths = (config_paths or default_config_paths)()
         pending: list[tuple[str, Path, dict]] = []
         for cid, label, container, entry in _TARGETS:
@@ -173,38 +193,46 @@ def run_installer(
             try:
                 config = load_json(path)
             except ValueError:
-                print(
-                    f"Skipping {label}: {path} is not valid JSON; leaving it untouched.",
-                    file=sys.stderr,
+                error_console.print(
+                    f"Skipping {escape(label)}: {escape(str(path))} is not valid JSON; "
+                    "leaving it untouched.",
+                    style="bold red",
                 )
                 continue
             if config is None:
                 config = {}
             if not upsert_client(config, container, entry):
-                print(f"{label}: mcp-jira already registered; skipping.")
+                console.print(f"{escape(label)}: mcp-jira already registered; skipping.")
                 continue
             pending.append((label, path, config))
         if not pending:
-            print("Nothing to register.")
+            console.print("Nothing to register.")
             return 0
-        print(f"Summary: {len(pending)} config(s) will be modified:")
-        for label, path, _ in pending:
-            print(f"  - {label} ({path})")
+        console.print(
+            Panel(
+                "\n".join(
+                    f"  - {escape(label)} ({escape(str(path))})" for label, path, _ in pending
+                ),
+                title=f"Summary: {len(pending)} config(s) will be modified",
+                title_align="left",
+            )
+        )
         answer = confirm("Write config(s)? (y/N, default no): ").strip().lower()
         if answer not in ("y", "yes"):
-            print("Aborted; nothing was written.", file=sys.stderr)
+            error_console.print("Aborted; nothing was written.", style="bold red")
             return 1
         for _, path, config in pending:
             try:
                 write_with_backup(path, config)
             except (OSError, ValueError) as exc:
-                print(
-                    f"Failed to write {path}: {exc}; original config left untouched.",
-                    file=sys.stderr,
+                error_console.print(
+                    f"Failed to write {escape(str(path))}: {escape(str(exc))}; "
+                    "original config left untouched.",
+                    style="bold red",
                 )
                 return 1
-            print(f"Registered mcp-jira in {path}")
+            console.print(f"Registered mcp-jira in {escape(str(path))}", style="bold green")
     except KeyboardInterrupt:
-        print("Aborted.", file=sys.stderr)
+        error_console.print("Aborted.", style="bold red")
         return 1
     return 0
