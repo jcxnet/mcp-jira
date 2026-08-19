@@ -1,0 +1,54 @@
+# openspec/config.yaml
+schema: spec-driven
+
+project: mcp-jira
+
+context: |
+  Tech stack: Python 3.10+ (runtime detected: 3.14.7), FastMCP (official `mcp` SDK), httpx for HTTP.
+  Architecture: MCP stdio server exposing 9 Jira tools; PAT auth against self-hosted Jira Data Center 9.0+ REST v2; config file ~/.config/mcp-jira/config.json (en/es language, read_only flag).
+  Source: PRD.md v1.0.0 (2026-08-19) — tools search/get/create/update/transition/comment/comments/projects/list_fields, `mcp-jira setup` wizard, stable error model (§4.4).
+  Testing: pytest planned via uv; not yet installed (no venv, no pyproject.toml). Integration via mocked HTTP layer (httpx MockTransport); manual smoke against a real DC instance.
+  Style: TBD at apply; PAT never logged; errors map to stable codes; no stack traces surfaced.
+
+strict_tdd: false
+
+testing:
+  runner: pytest
+  runner_command: "uv run pytest"
+  layers:
+    unit: true
+    integration: true
+    e2e: false
+  coverage_command: "uv run pytest --cov=mcp_jira"
+  coverage_threshold: 0
+  linter: ruff
+  type_checker: mypy
+  formatter: ruff format
+  notes: >
+    No test runner is installed yet (detected 2026-08-19): no venv, no pyproject.toml,
+    pytest absent. strict_tdd is false until pytest is provisioned in the apply phase
+    (uv is available). Flip to true once the test suite exists.
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+  specs:
+    - Use Given/When/Then for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+  design:
+    - Include sequence diagrams for complex flows
+    - Document architecture decisions with rationale
+  tasks:
+    - Group by phase, use hierarchical numbering
+    - Keep tasks completable in one session
+  apply:
+    guidelines:
+      - Follow existing code patterns
+    tdd: false
+    test_command: "uv run pytest"
+  verify:
+    test_command: "uv run pytest"
+    build_command: "uv run python -m compileall mcp_jira"
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas
