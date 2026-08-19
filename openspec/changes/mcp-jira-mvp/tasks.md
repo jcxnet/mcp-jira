@@ -70,9 +70,9 @@ Chain strategy: stacked-to-main
 
 ## Phase 6: Testing & Docs
 
-- [ ] **6.1** Mocked error-path suite — every tool error path: 401/403/404/429/400-JQL/400-validation/500 map to §4.4 codes; 400 discriminator; precedence; retry-once; 429 never retried; read-only guard; PAT-leak security check across logs and surfaced errors.
+- [x] **6.1** Mocked error-path suite — every tool error path: 401/403/404/429/400-JQL/400-validation/500 map to §4.4 codes; 400 discriminator; precedence; retry-once; 429 never retried; read-only guard; PAT-leak security check across logs and surfaced errors.
   **Deps**: 4.1, 4.2. **AC**: error-handling scenarios + proposal §success criteria (mocked suite covers all, no stack/PAT surfaced). **Tests**: `uv run pytest` — assert `JiraError.code` per path.
-- [ ] **6.2** Create `README.md` — install (`uv sync`), `mcp-jira setup`, config schema, error codes table, `mcpServers` blocks for OpenCode, Claude Desktop, Claude CLI, token rotation note.
+- [x] **6.2** Create `README.md` — install (`uv sync`), `mcp-jira setup`, config schema, error codes table, `mcpServers` blocks for OpenCode, Claude Desktop, Claude CLI, token rotation note.
   **Deps**: 1.1, 5.2. **AC**: proposal §success criteria — working mcpServers blocks for 3 agents; toolchain §console script scenario. **Tests**: none — doc artifact.
-- [ ] **6.3** Final gate — `uv run ruff check && uv run mypy src && uv run pytest` all green; confirm `uv run python -m mcp_jira --help` works; record manual smoke checklist (real DC, §3.2) as out-of-band.
+- [x] **6.3** Final gate — `uv run ruff check && uv run mypy src && uv run pytest` all green; confirm `uv run python -m mcp_jira --help` works; record manual smoke checklist (real DC, §3.2) as out-of-band.
   **Deps**: all. **AC**: toolchain §dev tooling scenario; proposal success criteria. **Tests**: full suite green.
