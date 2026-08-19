@@ -13,3 +13,6 @@ htmlcov/
 # Build artifacts
 dist/
 build/
+
+# Local tooling
+.atl/
