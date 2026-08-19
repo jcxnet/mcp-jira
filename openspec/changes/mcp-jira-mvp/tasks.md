@@ -56,9 +56,9 @@ Chain strategy: stacked-to-main
 
 ## Phase 4: Tools & Server
 
-- [ ] **4.1** Create `src/mcp_jira/tools.py` — 9 handlers per §3.1 contract table (search caps max_results at 100, get_issue `expand=transitions`, create returns `{key}`, transition by name or ID, list_fields `allowed_values` normalized to `[]`); read-only guard raising `READ_ONLY_MODE` (no HTTP) on the 4 mutating tools; FieldMap resolution in get/create/update.
+- [x] **4.1** Create `src/mcp_jira/tools.py` — 9 handlers per §3.1 contract table (search caps max_results at 100, get_issue `expand=transitions`, create returns `{key}`, transition by name or ID, list_fields `allowed_values` normalized to `[]`); read-only guard raising `READ_ONLY_MODE` (no HTTP) on the 4 mutating tools; FieldMap resolution in get/create/update.
   **Deps**: 2.1, 2.3, 3.1, 3.2. **AC**: jira-tools §tool contracts scenarios + §read-only mode scenarios (mutation blocked no HTTP, reads unaffected). **Tests**: integration — success path per tool via MockTransport.
-- [ ] **4.2** Create `src/mcp_jira/server.py` — FastMCP app; startup sequence: load config (fail fast `CONFIG_*`, no tools) → `GET /myself` (401 ⇒ `AUTH_UNAUTHORIZED`, no tools) → `GET /field` cache (failure fails fast) → register 9 tools with `i18n` names/descriptions per `language`.
+- [x] **4.2** Create `src/mcp_jira/server.py` — FastMCP app; startup sequence: load config (fail fast `CONFIG_*`, no tools) → `GET /myself` (401 ⇒ `AUTH_UNAUTHORIZED`, no tools) → `GET /field` cache (failure fails fast) → register 9 tools with `i18n` names/descriptions per `language`.
   **Deps**: 2.2, 2.3, 3.1, 3.2, 4.1. **AC**: server-config §startup validation scenarios; jira-tools §all tools listed. **Tests**: integration — tool list contains 9; CONFIG_MISSING/AUTH_UNAUTHORIZED expose zero tools.
 
 ## Phase 5: CLI & Wizard
