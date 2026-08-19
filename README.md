@@ -29,8 +29,10 @@ uv run mcp-jira setup
 
 The wizard prompts for the Jira URL and a hidden PAT, verifies connectivity
 with `GET /rest/api/2/myself`, and writes `~/.config/mcp-jira/config.json` with
-`0600` permissions. Nothing is written when connectivity fails. Without a
-terminal it prints the config path plus guidance and exits non-zero.
+`0600` permissions. The interactive prompts and summary are styled with Rich;
+output stays plain text when piped or when there is no TTY. Nothing is written
+when connectivity fails. Without a terminal it prints the config path plus
+guidance and exits non-zero.
 
 ### Config schema
 
@@ -117,6 +119,17 @@ stack trace or PAT. Precedence when multiple apply:
 | `READ_ONLY_MODE` | Mutation attempted with `read_only: true` |
 | `INTERNAL` | Unexpected exception — safe detail only, stack stays in local logs |
 
+## Quick start
+
+```bash
+uv sync                          # install deps + mcp-jira console script
+uv run mcp-jira setup            # Jira URL + PAT → ~/.config/mcp-jira/config.json (0600)
+uv run mcp-jira install          # register into OpenCode / Claude clients
+```
+
+Then open your agent and ask it to e.g. "Find open bugs assigned to me".
+The server starts on demand over stdio when the agent invokes a tool.
+
 ## Agent configuration
 
 Register the server into your MCP clients with the interactive installer:
@@ -143,6 +156,53 @@ created before the first write to each file; re-running reports
 prints guidance and exits non-zero. The PAT stays in
 `~/.config/mcp-jira/config.json` — client configs hold no secrets.
 
+### Manual registration
+
+Equivalent JSON to add by hand if you skip the installer. Use your venv's
+`python` from `uv run python -c "import sys; print(sys.executable)"`.
+
+**OpenCode** — `~/.config/opencode/opencode.json`:
+
+```json
+{
+  "mcp": {
+    "mcp-jira": {
+      "type": "local",
+      "command": ["/path/to/venv/bin/python", "-m", "mcp_jira"],
+      "enabled": true
+    }
+  }
+}
+```
+
+**Claude CLI** — `~/.claude.json` (`mcpServers` at the top level):
+
+```json
+{
+  "mcpServers": {
+    "mcp-jira": {
+      "command": "/path/to/venv/bin/python",
+      "args": ["-m", "mcp_jira"]
+    }
+  }
+}
+```
+
+**Claude Desktop** — `~/.config/Claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "mcp-jira": {
+      "command": "/path/to/venv/bin/python",
+      "args": ["-m", "mcp_jira"]
+    }
+  }
+}
+```
+
+After editing, restart the client so it spawns the server with the new entry.
+
 ## Token rotation
 
 Generate a new PAT in Jira admin → PATs, then update the config (or re-run
@@ -150,6 +210,13 @@ Generate a new PAT in Jira admin → PATs, then update the config (or re-run
 rotating.
 
 ## Manual smoke test
+
+Run the server itself to confirm it starts and exposes the tools:
+
+```bash
+# stdio server, no subcommand; fails fast with a CONFIG_*/AUTH_* error if setup is wrong
+uv run mcp-jira
+```
 
 Per PRD §3.2: against a real Data Center instance, run each tool once, verify
 outputs, and confirm a wrong/expired PAT produces a clear 401
