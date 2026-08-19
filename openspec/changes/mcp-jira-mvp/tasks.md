@@ -40,11 +40,11 @@ Chain strategy: stacked-to-main
 
 ## Phase 2: Config & Error Foundation
 
-- [ ] **2.1** Create `src/mcp_jira/errors.py` — §4.4 code constants, frozen `JiraError(code, message)`, `_classify_400` discriminator (errors dict → VALIDATION_ERROR; errorMessages+search → JQL_INVALID; endpoint fallback), `map_http_error` with precedence CONFIG > AUTH > RATE_LIMITED > VALIDATION > NOT_FOUND > SERVER > NETWORK > INTERNAL, `redact_pat` helper.
+- [x] **2.1** Create `src/mcp_jira/errors.py` — §4.4 code constants, frozen `JiraError(code, message)`, `_classify_400` discriminator (errors dict → VALIDATION_ERROR; errorMessages+search → JQL_INVALID; endpoint fallback), `map_http_error` with precedence CONFIG > AUTH > RATE_LIMITED > VALIDATION > NOT_FOUND > SERVER > NETWORK > INTERNAL, `redact_pat` helper.
   **Deps**: none. **AC**: error-handling §taxonomy (401→AUTH_UNAUTHORIZED, 429 surfaces Retry-After), §precedence (auth wins over timeout), §retry table. **Tests**: unit — discriminator branches, precedence ordering, redaction.
-- [ ] **2.2** Create `src/mcp_jira/config.py` — frozen `Settings(jira_url, jira_pat, language="en", read_only=False)`, loader (file `~/.config/mcp-jira/config.json` → env override `JIRA_URL`/`JIRA_PAT` → validate), fail-fast `CONFIG_MISSING`/`CONFIG_INVALID`, unknown language → en, world-readable perms warning to stderr.
+- [x] **2.2** Create `src/mcp_jira/config.py` — frozen `Settings(jira_url, jira_pat, language="en", read_only=False)`, loader (file `~/.config/mcp-jira/config.json` → env override `JIRA_URL`/`JIRA_PAT` → validate), fail-fast `CONFIG_MISSING`/`CONFIG_INVALID`, unknown language → en, world-readable perms warning to stderr.
   **Deps**: 2.1. **AC**: server-config §schema, §env overrides, §startup validation, §permissions (all scenarios). **Tests**: unit — valid/missing/malformed, env wins, file-only settings, perms warning.
-- [ ] **2.3** Create `src/mcp_jira/i18n.py` — en/es tables: tool names/descriptions + error message templates keyed by code; unknown language falls back to en; Jira verbatim detail/codes/keys untranslated.
+- [x] **2.3** Create `src/mcp_jira/i18n.py` — en/es tables: tool names/descriptions + error message templates keyed by code; unknown language falls back to en; Jira verbatim detail/codes/keys untranslated.
   **Deps**: 2.1. **AC**: server-config §unknown language → en; design Risk 3 scope. **Tests**: unit — fallback, both locales render.
 
 ## Phase 3: Client & Field Map
