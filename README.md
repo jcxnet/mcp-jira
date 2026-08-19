@@ -85,53 +85,29 @@ stack trace or PAT. Precedence when multiple apply:
 
 ## Agent configuration
 
-### OpenCode (`opencode.json`)
-
-OpenCode uses the `mcp` key (equivalent of `mcpServers` elsewhere):
-
-```json
-{
-  "mcp": {
-    "mcp-jira": {
-      "type": "local",
-      "command": ["uv", "run", "mcp-jira"],
-      "enabled": true
-    }
-  }
-}
-```
-
-### Claude Desktop (`claude_desktop_config.json`)
-
-```json
-{
-  "mcpServers": {
-    "mcp-jira": {
-      "command": "uv",
-      "args": ["run", "mcp-jira"]
-    }
-  }
-}
-```
-
-### Claude CLI
+Register the server into your MCP clients with the interactive installer:
 
 ```bash
-claude mcp add mcp-jira -- uv run mcp-jira
+uv run mcp-jira install
 ```
 
-Or in a project `.mcp.json`:
+It targets three clients (all selected by default, comma-separated numbers to
+pick a subset):
 
-```json
-{
-  "mcpServers": {
-    "mcp-jira": {
-      "command": "uv",
-      "args": ["run", "mcp-jira"]
-    }
-  }
-}
-```
+| Client | Config file | Entry key |
+|--------|-------------|-----------|
+| OpenCode (global) | `~/.config/opencode/opencode.json` | `mcp["mcp-jira"]` |
+| Claude CLI (user scope) | `~/.claude.json` | `mcpServers["mcp-jira"]` |
+| Claude Desktop | `~/.config/Claude/claude_desktop_config.json` | `mcpServers["mcp-jira"]` |
+
+The installer registers this project's own interpreter
+(`[sys.executable, "-m", "mcp_jira"]`), so run `uv run mcp-jira install` from
+the virtualenv — the command stays valid regardless of the working directory.
+Existing servers and keys are merged, never overwritten; a `.bak` copy is
+created before the first write to each file; re-running reports
+"already registered" and leaves the configs unchanged. Without a terminal it
+prints guidance and exits non-zero. The PAT stays in
+`~/.config/mcp-jira/config.json` — client configs hold no secrets.
 
 ## Token rotation
 
