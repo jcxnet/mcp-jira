@@ -49,9 +49,9 @@ Chain strategy: stacked-to-main
 
 ## Phase 3: Client & Field Map
 
-- [ ] **3.1** Create `src/mcp_jira/client.py` — `httpx.Client` with `Authorization: Bearer <PAT>`, retry-at-most-once after 1s on 5xx/network, never on 4xx incl. 429, 401 wins over concurrent timeout, stderr-only logging with PAT redaction + HTTP status + correlation ID.
+- [x] **3.1** Create `src/mcp_jira/client.py` — `httpx.Client` with `Authorization: Bearer <PAT>`, retry-at-most-once after 1s on 5xx/network, never on 4xx incl. 429, 401 wins over concurrent timeout, stderr-only logging with PAT redaction + HTTP status + correlation ID.
   **Deps**: 2.1. **AC**: error-handling §retry (5xx retried once then SERVER_ERROR; 429 never auto-retried), §logging (PAT never leaks, stderr only). **Tests**: integration — retry count, 1s backoff, 429 no-retry, redaction in logs.
-- [ ] **3.2** Create `src/mcp_jira/fields.py` — `FieldMap`: fetch `GET /rest/api/2/field` at startup, cache; `resolve()` by display name or raw `customfield_XXXXX`; ambiguous name → `VALIDATION_ERROR`.
+- [x] **3.2** Create `src/mcp_jira/fields.py` — `FieldMap`: fetch `GET /rest/api/2/field` at startup, cache; `resolve()` by display name or raw `customfield_XXXXX`; ambiguous name → `VALIDATION_ERROR`.
   **Deps**: 2.1. **AC**: jira-tools §custom-field resolution (name→ID, raw ID passthrough, ambiguous fails). **Tests**: unit — resolve both paths + ambiguity.
 
 ## Phase 4: Tools & Server
