@@ -1,7 +1,7 @@
 """`mcp-jira install`: TTY gate + register the server into MCP clients.
 
 Without a TTY the installer prints guidance and exits 1, byte-identical to the
-previous Rich behavior. On an interactive terminal it runs
+pre-TUI CLI output. On an interactive terminal it runs
 :class:`mcp_jira.tui.InstallApp`, which presents a ``SelectionList`` of the
 three clients (all selected by default), collects pending configs (skipping
 unparseable or already-registered files), confirms before writing, then writes
@@ -162,7 +162,7 @@ def run_installer(
     """Run the installer; returns the process exit code (0 = success).
 
     Without a TTY (or with ``interactive=False``) prints guidance and returns
-    1, byte-identical to the previous Rich behavior. With a TTY the installer
+    1, byte-identical to the pre-TUI CLI output. With a TTY the installer
     hands off to :class:`mcp_jira.tui.InstallApp` and returns its exit code;
     ``config_paths`` is injected for tests (design D-WRAP).
     """

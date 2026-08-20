@@ -1,6 +1,6 @@
 """Textual widget apps for `mcp-jira setup` and `mcp-jira install` (design ^D-2).
 
-``SetupApp`` and ``InstallApp`` replace the Rich prompt shells with widget
+``SetupApp`` and ``InstallApp`` replace the legacy prompt shells with widget
 forms. The write/merge/security logic stays in ``wizard``/``installer`` and is
 reached through the extracted pure helpers (``_write_config``,
 ``_collect_pending``, ``_resolve_targets``). Nothing is written unless the user
