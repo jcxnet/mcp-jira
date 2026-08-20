@@ -1,6 +1,10 @@
-"""Tests for mcp_jira.installer (merge/backup/validate, flow control, secrets).
+"""Unit tests for mcp_jira.installer (merge/backup/validate, TTY gate, targets).
 
-Injectable-driven like test_wizard: tmp_path configs, no real home writes.
+The interactive flow is covered by Textual Pilot tests in ``test_tui_install.py``;
+this file pins the non-TTY branch byte-identical and the pure functions
+(``load_json``/``upsert_client``/``write_with_backup``/``probe_desktop_dir``/
+``_resolve_targets``) with injected paths and fake configs in temp dirs (spec
+client-installer §Testability).
 """
 
 from __future__ import annotations
@@ -31,85 +35,7 @@ def _fake_paths(tmp_path: Path) -> dict[str, Path]:
     }
 
 
-def _install(
-    paths: dict[str, Path],
-    *,
-    targets: str = "",
-    confirm_answer: str = "y",
-) -> int:
-    return installer.run_installer(
-        interactive=True,
-        config_paths=lambda: paths,
-        targets_selected=lambda p, o, d: targets,
-        confirm=lambda p: confirm_answer,
-    )
-
-
-# --- 4.1 integration: all targets, merge, modes, .bak, idempotency ----------
-
-
-def test_install_merges_all_targets_preserves_secrets_and_modes(tmp_path, capsys) -> None:
-    paths = _fake_paths(tmp_path)
-    paths["opencode"].write_text(
-        json.dumps(
-            {
-                "mcp": {
-                    "figma": {"type": "local", "command": ["figma"], "env": {"FIGMA_API_KEY": FKEY}}
-                }
-            }
-        )
-    )
-    paths["claude"].write_text(
-        json.dumps({"state": "keep", "mcpServers": {"other": {"command": "x"}}})
-    )
-    os.chmod(paths["claude"], 0o600)
-    orig_claude = paths["claude"].read_bytes()
-
-    assert _install(paths) == 0
-
-    oc = json.loads(paths["opencode"].read_text())
-    assert oc["mcp"]["figma"]["env"]["FIGMA_API_KEY"] == FKEY
-    assert oc["mcp"]["mcp-jira"] == OPENCODE_ENTRY
-    cl = json.loads(paths["claude"].read_text())
-    assert cl["state"] == "keep"
-    assert cl["mcpServers"]["other"] == {"command": "x"}
-    assert cl["mcpServers"]["mcp-jira"] == CLAUDE_ENTRY
-    dt = json.loads(paths["desktop"].read_text())
-    assert dt["mcpServers"]["mcp-jira"] == CLAUDE_ENTRY
-
-    assert (paths["claude"].stat().st_mode & 0o777) == 0o600  # mode preserved
-    assert (paths["desktop"].stat().st_mode & 0o777) == 0o644  # new file
-    bak = paths["claude"].with_suffix(".json.bak")
-    assert bak.read_bytes() == orig_claude  # backup holds the pre-merge original
-    assert not paths["desktop"].with_suffix(".json.bak").exists()  # new file: no backup
-
-    out = capsys.readouterr().out
-    assert "Registered mcp-jira in" in out
-    assert FKEY not in out
-
-
-def test_install_idempotent_rerun_reports_already_registered(tmp_path, capsys) -> None:
-    paths = _fake_paths(tmp_path)
-    paths["claude"].write_text(json.dumps({"mcpServers": {}}))
-    assert _install(paths) == 0
-    after_first = {p: p.read_bytes() for p in paths.values()}
-
-    assert _install(paths) == 0
-    assert all(p.read_bytes() == b for p, b in after_first.items())  # unchanged
-    out = capsys.readouterr().out
-    assert out.count("already registered") == 3
-    assert "Nothing to register." in out
-
-
-def test_select_subset_writes_only_selected(tmp_path) -> None:
-    paths = _fake_paths(tmp_path)
-    assert _install(paths, targets="2") == 0
-    assert not paths["opencode"].exists()
-    assert not paths["desktop"].exists()
-    assert "mcp-jira" in json.loads(paths["claude"].read_text())["mcpServers"]
-
-
-# --- 4.2 unit: load_json / upsert_client / write_with_backup / probe ---------
+# --- 4.1 unit: load_json / upsert_client / write_with_backup / probe ---------
 
 
 def test_load_json_missing_returns_none(tmp_path) -> None:
@@ -189,42 +115,34 @@ def test_probe_desktop_dir_default_capital(tmp_path) -> None:
     assert installer.probe_desktop_dir(tmp_path) == tmp_path / ".config" / "Claude"
 
 
-# --- 4.3 flow: non-TTY, ^C, decline, corrupt skip, secrets -------------------
+# --- 4.2 unit: _resolve_targets (empty→all, dedupe, order-preserving) -------
+
+
+def test_resolve_targets_empty_selects_all() -> None:
+    assert installer._resolve_targets([], installer._IDS) == list(installer._IDS)
+
+
+def test_resolve_targets_dedupes_preserving_first_seen_order() -> None:
+    assert installer._resolve_targets(
+        ["desktop", "desktop", "opencode", "claude"], installer._IDS
+    ) == [
+        "desktop",
+        "opencode",
+        "claude",
+    ]
+
+
+def test_resolve_targets_keeps_selected_order_not_ids_order() -> None:
+    assert installer._resolve_targets(["desktop", "opencode"], installer._IDS) == [
+        "desktop",
+        "opencode",
+    ]
+
+
+# --- 4.3 TTY gate: non-TTY guidance ------------------------------------------
 
 
 def test_non_interactive_prints_guidance_exits_1(tmp_path, capsys) -> None:
     code = installer.run_installer(interactive=False, config_paths=lambda: _fake_paths(tmp_path))
     assert code == 1
     assert "terminal" in capsys.readouterr().out
-
-
-def test_ctrl_c_at_selection_aborts_without_writing(tmp_path, capsys) -> None:
-    paths = _fake_paths(tmp_path)
-
-    def boom(p: str, o: object, d: str) -> str:
-        raise KeyboardInterrupt
-
-    code = installer.run_installer(
-        interactive=True, config_paths=lambda: paths, targets_selected=boom
-    )
-    assert code == 1
-    assert not any(p.exists() for p in paths.values())
-    assert "Aborted" in capsys.readouterr().err
-
-
-def test_declined_confirm_writes_nothing(tmp_path, capsys) -> None:
-    paths = _fake_paths(tmp_path)
-    assert _install(paths, confirm_answer="") == 1
-    assert not any(p.exists() for p in paths.values())
-    assert "nothing was written" in capsys.readouterr().err
-
-
-def test_corrupt_config_skipped_untouched(tmp_path, capsys) -> None:
-    paths = _fake_paths(tmp_path)
-    paths["opencode"].write_text("{broken")
-    assert _install(paths) == 0
-    assert paths["opencode"].read_text() == "{broken"
-    assert "mcp-jira" in json.loads(paths["claude"].read_text())["mcpServers"]
-    captured = capsys.readouterr()
-    assert "not valid JSON" in captured.err
-    assert FKEY not in captured.out
