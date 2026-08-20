@@ -17,8 +17,10 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
 from textual.widgets import SelectionList, Static
 
+from mcp_jira import installer
 from mcp_jira.installer import _IDS
 from mcp_jira.tui import ConfirmModal, InstallApp
 
@@ -28,6 +30,16 @@ _OPENCODE_ENTRY = {
     "enabled": True,
 }
 _CLAUDE_ENTRY = {"command": sys.executable, "args": ["-m", "mcp_jira"]}
+
+
+@pytest.fixture(autouse=True)
+def _all_clients_selectable(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Existing tests assume all three clients selectable; fake opencode/claude on PATH."""
+    monkeypatch.setattr(
+        installer.shutil,
+        "which",
+        lambda name: f"/usr/bin/{name}" if name in ("opencode", "claude") else None,
+    )
 
 
 def _paths(tmp_path: Path) -> dict[str, Path]:
@@ -82,6 +94,7 @@ async def test_success_merges_all_three_targets_with_modes_and_backups(tmp_path:
 async def test_default_selection_is_all_three_clients(tmp_path: Path) -> None:
     """Scenario 'Default selection is all clients': continue without changing."""
     paths = _paths(tmp_path)
+    paths["desktop"].write_text("{}", encoding="utf-8")  # desktop has no CLI binary
     app = InstallApp(config_paths=lambda: paths)
     async with app.run_test(headless=True, size=(80, 24)) as pilot:
         assert app.query_one("#targets", SelectionList).selected == list(_IDS)
@@ -96,6 +109,7 @@ async def test_default_selection_is_all_three_clients(tmp_path: Path) -> None:
 
 async def test_subset_writes_only_selected_targets(tmp_path: Path) -> None:
     paths = _paths(tmp_path)
+    paths["desktop"].write_text("{}", encoding="utf-8")
     app = InstallApp(config_paths=lambda: paths)
     async with app.run_test(headless=True, size=(80, 24)) as pilot:
         app.query_one("#targets", SelectionList).deselect("opencode")
@@ -117,6 +131,7 @@ async def test_already_registered_shows_notice_and_preserves_client(tmp_path: Pa
     paths = _paths(tmp_path)
     original = '{"mcp": {"mcp-jira": {"type": "local", "command": ["old"]}}}'
     paths["opencode"].write_text(original, encoding="utf-8")
+    paths["desktop"].write_text("{}", encoding="utf-8")
     app = InstallApp(config_paths=lambda: paths)
     async with app.run_test(headless=True, size=(80, 24)) as pilot:
         await pilot.click("#continue")
@@ -135,6 +150,7 @@ async def test_corrupt_config_notice_skips_and_leaves_file_untouched(tmp_path: P
     paths = _paths(tmp_path)
     corrupt = "{not json"
     paths["opencode"].write_text(corrupt, encoding="utf-8")
+    paths["desktop"].write_text("{}", encoding="utf-8")
     app = InstallApp(config_paths=lambda: paths)
     async with app.run_test(headless=True, size=(80, 24)) as pilot:
         await pilot.click("#continue")
@@ -168,3 +184,32 @@ async def test_ctrl_c_on_selection_screen_writes_nothing_and_exits_1(tmp_path: P
         await pilot.press("ctrl+c")
     assert app.return_code == 1
     assert not any(path.exists() for path in paths.values())
+
+
+async def test_unavailable_clients_disabled_noticed_and_skipped(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Only opencode is available: claude/desktop are disabled, noticed, not written."""
+    monkeypatch.setattr(installer.shutil, "which", lambda name: None)  # no CLI binaries
+    paths = _paths(tmp_path)
+    paths["opencode"].write_text("{}", encoding="utf-8")
+    app = InstallApp(config_paths=lambda: paths)
+    async with app.run_test(headless=True, size=(80, 24)) as pilot:
+        targets = app.query_one("#targets", SelectionList)
+        assert targets.selected == ["opencode"]
+        assert not targets.get_option("opencode").disabled
+        assert targets.get_option("claude").disabled
+        assert targets.get_option("desktop").disabled
+        notices = str(app.query_one("#notices", Static).content)
+        assert "Claude CLI not found" in notices and "skipped" in notices
+        assert "Claude Desktop not found" in notices and "skipped" in notices
+        assert "OpenCode" not in notices
+        await pilot.click("#continue")
+        assert "Claude CLI not found" in _notices(app)  # availability notice persists
+        assert isinstance(app.screen, ConfirmModal)
+        await pilot.click("#write")
+        await pilot.click("#ok")
+    assert app.return_code == 0
+    assert paths["opencode"].exists()
+    assert not paths["claude"].exists()
+    assert not paths["desktop"].exists()

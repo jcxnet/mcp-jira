@@ -33,6 +33,7 @@ from textual.widgets import (
     Static,
     Switch,
 )
+from textual.widgets._selection_list import Selection
 from textual.worker import get_current_worker
 
 from mcp_jira.client import JiraClient
@@ -41,6 +42,7 @@ from mcp_jira.errors import JiraError
 from mcp_jira.installer import (
     _IDS,
     _TARGETS,
+    _available_clients,
     _collect_pending,
     _resolve_targets,
     default_config_paths,
@@ -56,6 +58,15 @@ if TYPE_CHECKING:
 
         @property
         def app(self) -> App[object]: ...
+
+
+def _availability_notices(availability: dict[str, str | None]) -> str:
+    """One line per unavailable client: ``'{label}: {reason} — skipped.'``."""
+    return "\n".join(
+        f"{label}: {availability[cid]} — skipped."
+        for cid, label, _, _ in _TARGETS
+        if availability[cid] is not None
+    )
 
 
 class _AbortMixin(DOMNode):
@@ -263,13 +274,21 @@ class InstallApp(_AbortMixin, App[int]):
         self._pending: list[tuple[str, Path, dict]] = []
 
     def compose(self) -> ComposeResult:
+        availability = _available_clients(self._config_paths())
+        options = [
+            Selection(
+                label,
+                cid,
+                initial_state=availability[cid] is None,
+                disabled=availability[cid] is not None,
+                id=cid,
+            )
+            for cid, label, _, _ in _TARGETS
+        ]
         with Vertical(id="form"):
             yield Label("Select MCP clients to register (default: all)")
-            yield SelectionList(
-                *[(label, cid, True) for cid, label, _, _ in _TARGETS],
-                id="targets",
-            )
-            yield Static("", id="notices", markup=False)
+            yield SelectionList(*options, id="targets")
+            yield Static(_availability_notices(availability), id="notices", markup=False)
             yield Button("Continue", id="continue", variant="primary")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -277,9 +296,13 @@ class InstallApp(_AbortMixin, App[int]):
             self._continue()
 
     def _continue(self) -> None:
+        paths = self._config_paths()
         selected = self.query_one("#targets", SelectionList).selected
         ids = _resolve_targets(selected, _IDS)
-        pending, notices = _collect_pending(ids, self._config_paths())
+        pending, notices = _collect_pending(ids, paths)
+        availability = _availability_notices(_available_clients(paths))
+        if availability:
+            notices = [availability] + notices
         self.query_one("#notices", Static).update("\n".join(notices))
         if not pending:
             self.push_screen(ResultScreen(0, "Nothing to register."))
