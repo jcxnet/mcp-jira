@@ -21,6 +21,7 @@ from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Vertical
+from textual.dom import DOMNode
 from textual.screen import ModalScreen, Screen
 from textual.widgets import (
     Button,
@@ -57,14 +58,18 @@ if TYPE_CHECKING:
         def app(self) -> App[object]: ...
 
 
-class _AbortMixin:
+class _AbortMixin(DOMNode):
     """Priority ``ctrl+c``/``ctrl+q`` abort shared by apps and screens (^D-^C).
 
+    Subclassing ``DOMNode`` (not a plain mixin) is required: Textual merges
+    ``BINDINGS`` only from ``DOMNode`` subclasses in the MRO
+    (``DOMNode._merge_bindings``), so a plain mixin's bindings would be
+    silently dropped and Textual's default ``ctrl+q -> quit`` would win.
     Textual 8.2 ``Screen`` has no ``exit()`` and apps no longer quit on
     ``ctrl+c``; ``app`` resolves on both ``App`` and ``Screen``, so
-    ``self.app.exit(1)`` aborts the whole app with exit code 1 from any screen.
-    ``priority=True`` wins over focused-widget bindings (e.g. Input's copy);
-    ``show=False`` hides both bindings from the footer.
+    ``self.app.exit(return_code=1)`` aborts the whole app with exit code 1
+    from any screen. ``priority=True`` wins over focused-widget bindings
+    (e.g. Input's copy); ``show=False`` hides both bindings from the footer.
     """
 
     BINDINGS: ClassVar[list[BindingType]] = [
@@ -73,7 +78,9 @@ class _AbortMixin:
     ]
 
     def action_abort(self: _Abortable) -> None:
-        self.app.exit(1)
+        # Textual 8: exit() is exit(result, return_code); the code must be
+        # keyword-passed or it lands in `result` and return_code stays 0.
+        self.app.exit(return_code=1)
 
 
 class ConfirmModal(_AbortMixin, ModalScreen[bool]):
@@ -118,7 +125,7 @@ class ResultScreen(_AbortMixin, Screen[None]):
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "ok":
-            self.app.exit(self._code)
+            self.app.exit(return_code=self._code)
 
 
 class SetupApp(_AbortMixin, App[int]):
@@ -216,7 +223,7 @@ class SetupApp(_AbortMixin, App[int]):
 
     def _on_confirm(self, result: object) -> None:
         if result is not True:
-            self.exit(1)
+            self.exit(return_code=1)
             return
         url, pat = self._values
         language = str(self.query_one("#language", Select).value)
@@ -285,7 +292,7 @@ class InstallApp(_AbortMixin, App[int]):
 
     def _on_confirm(self, result: object) -> None:
         if result is not True:
-            self.exit(1)
+            self.exit(return_code=1)
             return
         messages: list[str] = []
         for _, path, config in self._pending:

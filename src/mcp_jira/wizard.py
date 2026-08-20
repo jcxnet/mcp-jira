@@ -91,7 +91,8 @@ def run_wizard(
     from mcp_jira.tui import SetupApp
 
     app = SetupApp(config_path=path, transport=transport)
-    result = app.run()
-    # run() is typed int | None; SetupApp always exits with a code, so None
-    # (no explicit exit) is unreachable and treated as success.
-    return 0 if result is None else result
+    app.run()
+    # run() returns the app's result; the exit code lives in app.return_code
+    # (Textual 8 exit(result, return_code)). SetupApp always exits with a
+    # code, so None (no explicit exit) is unreachable and treated as success.
+    return 0 if app.return_code is None else app.return_code
