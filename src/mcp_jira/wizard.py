@@ -1,7 +1,7 @@
 """`mcp-jira setup` wizard: TTY gate + 0600 config write.
 
 Without a TTY the wizard prints the config path plus guidance and exits
-non-zero (AC-US-9), byte-identical to the previous Rich behavior. On an
+non-zero (AC-US-9), byte-identical to the pre-TUI CLI output. On an
 interactive terminal it runs :class:`mcp_jira.tui.SetupApp`, which collects
 URL/PAT/``language``/``read_only``, verifies connectivity with
 ``GET /rest/api/2/myself``, confirms the summary, and writes
@@ -76,7 +76,7 @@ def run_wizard(
     """Run the setup wizard; returns the process exit code (0 = success).
 
     Without a TTY (or with ``interactive=False``) prints the config path plus
-    guidance and returns 1, byte-identical to the previous Rich behavior. With
+    guidance and returns 1, byte-identical to the pre-TUI CLI output. With
     a TTY the wizard hands off to :class:`mcp_jira.tui.SetupApp` and returns
     its exit code; ``transport`` is injected for tests (design D-WRAP).
     """
