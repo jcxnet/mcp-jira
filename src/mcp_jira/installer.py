@@ -123,6 +123,42 @@ def default_config_paths() -> dict[str, Path]:
     }
 
 
+def _resolve_targets(selected: Sequence[str], ids: Sequence[str]) -> list[str]:
+    """Resolve the selected ids: empty → all, dedupe, first-seen order (D-SEL)."""
+    chosen = list(dict.fromkeys(selected))
+    return list(ids) if not chosen else chosen
+
+
+def _collect_pending(
+    selected: Sequence[str],
+    paths: dict[str, Path],
+) -> tuple[list[tuple[str, Path, dict]], list[str]]:
+    """Collect client configs pending registration; returns (pending, notices).
+
+    Corrupt JSON and already-registered clients are skipped with a notice and
+    left untouched; ``pending`` is written by the caller. Shared with
+    ``tui.InstallApp`` (design: extraction from the inline loop).
+    """
+    pending: list[tuple[str, Path, dict]] = []
+    notices: list[str] = []
+    for cid, label, container, entry in _TARGETS:
+        if cid not in selected:
+            continue
+        path = paths[cid]
+        try:
+            config = load_json(path)
+        except ValueError:
+            notices.append(f"Skipping {label}: {path} is not valid JSON; leaving it untouched.")
+            continue
+        if config is None:
+            config = {}
+        if not upsert_client(config, container, entry):
+            notices.append(f"{label}: mcp-jira already registered; skipping.")
+            continue
+        pending.append((label, path, config))
+    return pending, notices
+
+
 def _select_targets(
     prompt: Callable[[str, Sequence[str], str], str],
     options: Sequence[str],

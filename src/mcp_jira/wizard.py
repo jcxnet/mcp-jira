@@ -48,6 +48,33 @@ def _valid_url(url: str) -> bool:
     return parts.scheme in {"http", "https"} and bool(parts.netloc)
 
 
+def _write_config(
+    path: Path,
+    *,
+    jira_url: str,
+    jira_pat: str,
+    language: str,
+    read_only: bool,
+) -> None:
+    """Write the wizard config with 0600 perms: os.open + chmod, 4 keys.
+
+    Shared with ``tui.SetupApp`` (design: extraction from the inline write).
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        json.dump(
+            {
+                "jira_url": jira_url,
+                "jira_pat": jira_pat,
+                "language": language,
+                "read_only": read_only,
+            },
+            fh,
+        )
+    os.chmod(path, 0o600)  # enforce even if the file pre-existed with looser perms
+
+
 def _rich_prompt(p: str) -> str:
     """Rich ``Prompt.ask`` for a plain text answer (design D3/D4)."""
     return Prompt.ask(escape(p))
