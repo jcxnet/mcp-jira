@@ -174,7 +174,9 @@ def run_installer(
     # Local import: tui.py imports installer helpers at module level.
     from mcp_jira.tui import InstallApp
 
-    result = InstallApp(config_paths=config_paths).run()
-    # run() is typed int | None; InstallApp always exits with a code, so None
-    # (no explicit exit) is unreachable and treated as success.
-    return 0 if result is None else result
+    app = InstallApp(config_paths=config_paths)
+    app.run()
+    # run() returns the app's result; the exit code lives in app.return_code
+    # (Textual 8 exit(result, return_code)). InstallApp always exits with a
+    # code, so None (no explicit exit) is unreachable and treated as success.
+    return 0 if app.return_code is None else app.return_code
