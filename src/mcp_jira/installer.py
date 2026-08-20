@@ -118,6 +118,27 @@ def default_config_paths() -> dict[str, Path]:
     }
 
 
+def _available_clients(paths: dict[str, Path]) -> dict[str, str | None]:
+    """Map client id -> ``None`` (available) or a short reason (unavailable).
+
+    ``opencode`` and ``claude`` are available when their config file exists or
+    their CLI binary is on PATH; ``desktop`` only when its config file exists
+    (Claude Desktop ships no CLI binary). The caller passes the resolved paths
+    so tests can inject temp dirs and monkeypatch ``shutil.which``.
+    """
+    reasons = {
+        "opencode": "OpenCode not found (no config or opencode binary on PATH)",
+        "claude": "Claude CLI not found (no ~/.claude.json or claude binary on PATH)",
+        "desktop": "Claude Desktop not found (no claude_desktop_config.json)",
+    }
+    availability: dict[str, str | None] = {}
+    for cid, reason in reasons.items():
+        has_config = paths[cid].exists()
+        has_binary = cid != "desktop" and shutil.which(cid) is not None
+        availability[cid] = None if (has_config or has_binary) else reason
+    return availability
+
+
 def _resolve_targets(selected: Sequence[str], ids: Sequence[str]) -> list[str]:
     """Resolve the selected ids: empty → all, dedupe, first-seen order (D-SEL)."""
     chosen = list(dict.fromkeys(selected))

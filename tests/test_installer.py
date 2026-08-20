@@ -146,3 +146,47 @@ def test_non_interactive_prints_guidance_exits_1(tmp_path, capsys) -> None:
     code = installer.run_installer(interactive=False, config_paths=lambda: _fake_paths(tmp_path))
     assert code == 1
     assert "terminal" in capsys.readouterr().out
+
+
+# --- 4.4 unit: _available_clients --------------------------------------------
+
+
+def test_available_clients_all_available_when_configs_exist(tmp_path, monkeypatch) -> None:
+    paths = _fake_paths(tmp_path)
+    for p in paths.values():
+        p.write_text("{}")
+    monkeypatch.setattr(installer.shutil, "which", lambda name: None)
+    assert installer._available_clients(paths) == {
+        "opencode": None,
+        "claude": None,
+        "desktop": None,
+    }
+
+
+def test_available_clients_unavailable_without_config_or_binary(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(installer.shutil, "which", lambda name: None)
+    assert installer._available_clients(_fake_paths(tmp_path)) == {
+        "opencode": "OpenCode not found (no config or opencode binary on PATH)",
+        "claude": "Claude CLI not found (no ~/.claude.json or claude binary on PATH)",
+        "desktop": "Claude Desktop not found (no claude_desktop_config.json)",
+    }
+
+
+def test_available_clients_opencode_and_claude_via_binary(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(
+        installer.shutil,
+        "which",
+        lambda name: f"/usr/bin/{name}" if name in ("opencode", "claude") else None,
+    )
+    result = installer._available_clients(_fake_paths(tmp_path))
+    assert result["opencode"] is None
+    assert result["claude"] is None
+    assert result["desktop"] is not None
+
+
+def test_available_clients_desktop_requires_config_not_binary(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(installer.shutil, "which", lambda name: f"/usr/bin/{name}")
+    result = installer._available_clients(_fake_paths(tmp_path))
+    assert result["opencode"] is None  # binary on PATH is enough
+    assert result["claude"] is None
+    assert result["desktop"] is not None  # desktop only checks its config file
