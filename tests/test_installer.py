@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from mcp_jira import installer
+from mcp_jira import installer, platform
 
 FKEY = "sk-figma-1234"
 CLAUDE_ENTRY = {"command": sys.executable, "args": ["-m", "mcp_jira"]}
@@ -67,6 +67,13 @@ def test_write_with_backup_new_file_0644(tmp_path) -> None:
     assert (p.stat().st_mode & 0o777) == 0o644
     assert json.loads(p.read_text()) == {"a": 1}
     assert not p.with_suffix(".json.bak").exists()
+
+
+def test_write_with_backup_skips_chmod_on_windows(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(platform, "is_windows", lambda: True)
+    p = tmp_path / "new.json"
+    installer.write_with_backup(p, {"a": 1})
+    assert json.loads(p.read_text()) == {"a": 1}
 
 
 def test_write_with_backup_backup_once_and_preserves_mode(tmp_path) -> None:
@@ -190,3 +197,62 @@ def test_available_clients_desktop_requires_config_not_binary(tmp_path, monkeypa
     assert result["opencode"] is None  # binary on PATH is enough
     assert result["claude"] is None
     assert result["desktop"] is not None  # desktop only checks its config file
+
+
+# --- cross-platform: per-OS client paths --------------------------------------
+
+
+def test_default_config_paths_linux(monkeypatch) -> None:
+    monkeypatch.setattr(platform, "is_windows", lambda: False)
+    monkeypatch.setattr(platform, "is_macos", lambda: False)
+    home = Path("/home/u")
+    monkeypatch.setattr(Path, "home", lambda: home)
+    paths = installer.default_config_paths()
+    assert paths["opencode"] == home / ".config/opencode/opencode.json"
+    assert paths["claude"] == home / ".claude.json"
+    assert paths["desktop"] == home / ".config/Claude/claude_desktop_config.json"
+
+
+def test_default_config_paths_macos(monkeypatch) -> None:
+    monkeypatch.setattr(platform, "is_windows", lambda: False)
+    monkeypatch.setattr(platform, "is_macos", lambda: True)
+    home = Path("/Users/u")
+    monkeypatch.setattr(Path, "home", lambda: home)
+    paths = installer.default_config_paths()
+    assert (
+        paths["desktop"] == home / "Library/Application Support/Claude/claude_desktop_config.json"
+    )
+
+
+def test_default_config_paths_windows(monkeypatch) -> None:
+    monkeypatch.setattr(platform, "is_windows", lambda: True)
+    monkeypatch.setattr(platform, "is_macos", lambda: False)
+    home = Path("C:/Users/u")
+    monkeypatch.setattr(Path, "home", lambda: home)
+    monkeypatch.setattr(os, "environ", {"APPDATA": "C:/Users/u/AppData/Roaming"}, raising=False)
+    paths = installer.default_config_paths()
+    assert paths["desktop"] == Path("C:/Users/u/AppData/Roaming/Claude/claude_desktop_config.json")
+
+
+# --- cross-platform: frozen binary vs venv registration -----------------------
+
+
+def test_server_command_venv(monkeypatch) -> None:
+    monkeypatch.setattr(platform, "is_frozen", lambda: False)
+    assert platform.server_command() == [sys.executable, "-m", "mcp_jira"]
+
+
+def test_server_command_frozen(monkeypatch) -> None:
+    monkeypatch.setattr(platform, "is_frozen", lambda: True)
+    assert platform.server_command() == [sys.executable]
+
+
+def test_targets_derive_command_from_server_cmd() -> None:
+    """_TARGETS entries are wired from _SERVER_CMD (frozen-aware at import)."""
+    cmd = installer._SERVER_CMD
+    opencode = installer._TARGETS[0][3]
+    claude = installer._TARGETS[1][3]
+    desktop = installer._TARGETS[2][3]
+    assert opencode["command"] == cmd
+    assert claude == {"command": cmd[0], "args": cmd[1:]}
+    assert desktop == {"command": cmd[0], "args": cmd[1:]}

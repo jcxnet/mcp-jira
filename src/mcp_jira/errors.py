@@ -34,7 +34,7 @@ ERROR_PRECEDENCE: tuple[str, ...] = (
 # filled by the mapper; i18n mirrors this table per language (design Risk 3).
 EN_MESSAGES: dict[str, str] = {
     "CONFIG_MISSING": (
-        "Configuration missing. Run `mcp-jira setup` or create `~/.config/mcp-jira/config.json`."
+        "Configuration missing. Run `mcp-jira setup` or create the per-OS config file."
     ),
     "CONFIG_INVALID": ("Invalid configuration: {detail}. Fix config or re-run `mcp-jira setup`."),
     "AUTH_UNAUTHORIZED": (

@@ -4,10 +4,11 @@ Without a TTY the wizard prints the config path plus guidance and exits
 non-zero (AC-US-9), byte-identical to the pre-TUI CLI output. On an
 interactive terminal it runs :class:`mcp_jira.tui.SetupApp`, which collects
 URL/PAT/``language``/``read_only``, verifies connectivity with
-``GET /rest/api/2/myself``, confirms the summary, and writes
-``~/.config/mcp-jira/config.json`` with 0600 permissions. Nothing is written
-unless connectivity succeeds AND the user confirms; ``ctrl+c``/``ctrl+q``
-abort with exit 1 and nothing written.
+``GET /rest/api/2/myself``, confirms the summary, and writes the per-OS config
+file (see :func:`mcp_jira.platform.config_dir`) with 0600 permissions
+(Windows: no permission bits). Nothing is written unless connectivity succeeds
+AND the user confirms; ``ctrl+c``/``ctrl+q`` abort with exit 1 and nothing
+written.
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ from urllib.parse import urlsplit
 import httpx
 
 from mcp_jira.config import default_config_path
+from mcp_jira.platform import is_windows
 
 _GUIDANCE = (
     "Run `mcp-jira setup` on a terminal to create it, or write it yourself "
@@ -64,7 +66,8 @@ def _write_config(
             },
             fh,
         )
-    os.chmod(path, 0o600)  # enforce even if the file pre-existed with looser perms
+    if not is_windows():
+        os.chmod(path, 0o600)  # enforce even if the file pre-existed with looser perms
 
 
 def run_wizard(

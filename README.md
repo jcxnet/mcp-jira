@@ -15,11 +15,31 @@ Source of truth: `PRD.md` (v1.0.0).
 
 ## Install
 
+**Source / uv** (contributors):
+
 ```bash
 uv sync
 ```
 
 This creates the virtualenv and installs the `mcp-jira` console script.
+
+**Binary releases** (end users, no Python needed): download the binary for
+your OS from the [GitHub releases](https://github.com/jcxnet/mcp-jira/releases)
+page and run it directly:
+
+| OS | Asset |
+|---|---|
+| Linux | `mcp-jira-linux-x86_64` |
+| macOS | `mcp-jira-macos-x86_64` |
+| Windows | `mcp-jira-windows-x86_64.exe` |
+
+Then configure and register it exactly like the uv install (below) — the
+binary has no `uv run` prefix:
+
+```bash
+./mcp-jira setup
+./mcp-jira install
+```
 
 ## Setup
 
@@ -28,13 +48,21 @@ uv run mcp-jira setup
 ```
 
 The wizard prompts for the Jira URL and a hidden PAT, verifies connectivity
-with `GET /rest/api/2/myself`, and writes `~/.config/mcp-jira/config.json` with
-`0600` permissions. The interactive prompts and summary are styled with Rich;
-output stays plain text when piped or when there is no TTY. Nothing is written
-when connectivity fails. Without a terminal it prints the config path plus
-guidance and exits non-zero.
+with `GET /rest/api/2/myself`, and writes the config file with `0600`
+permissions (Windows: no permission bits). The interactive prompts and summary
+are styled with Rich; output stays plain text when piped or when there is no
+TTY. Nothing is written when connectivity fails. Without a terminal it prints
+the config path plus guidance and exits non-zero.
 
 ### Config schema
+
+The config file lives in the per-OS config directory:
+
+| OS | Path |
+|---|---|
+| Linux | `~/.config/mcp-jira/config.json` (or `$XDG_CONFIG_HOME/mcp-jira/`) |
+| macOS | `~/Library/Application Support/mcp-jira/config.json` |
+| Windows | `%APPDATA%\mcp-jira\config.json` |
 
 ```json
 {
@@ -121,10 +149,21 @@ stack trace or PAT. Precedence when multiple apply:
 
 ## Quick start
 
+**Source install:**
+
 ```bash
 uv sync                          # install deps + mcp-jira console script
-uv run mcp-jira setup            # Jira URL + PAT → ~/.config/mcp-jira/config.json (0600)
+uv run mcp-jira setup            # Jira URL + PAT → per-OS config file (0600)
 uv run mcp-jira install          # register into OpenCode / Claude clients
+```
+
+**Binary install:** download the asset for your OS from
+[releases](https://github.com/jcxnet/mcp-jira/releases), then run the same two
+commands without the `uv run` prefix:
+
+```bash
+./mcp-jira setup
+./mcp-jira install
 ```
 
 Then open your agent and ask it to e.g. "Find open bugs assigned to me".
@@ -145,21 +184,32 @@ pick a subset):
 |--------|-------------|-----------|
 | OpenCode (global) | `~/.config/opencode/opencode.json` | `mcp["mcp-jira"]` |
 | Claude CLI (user scope) | `~/.claude.json` | `mcpServers["mcp-jira"]` |
-| Claude Desktop | `~/.config/Claude/claude_desktop_config.json` | `mcpServers["mcp-jira"]` |
+| Claude Desktop | per-OS (see below) | `mcpServers["mcp-jira"]` |
 
-The installer registers this project's own interpreter
-(`[sys.executable, "-m", "mcp_jira"]`), so run `uv run mcp-jira install` from
-the virtualenv — the command stays valid regardless of the working directory.
-Existing servers and keys are merged, never overwritten; a `.bak` copy is
-created before the first write to each file; re-running reports
-"already registered" and leaves the configs unchanged. Without a terminal it
-prints guidance and exits non-zero. The PAT stays in
-`~/.config/mcp-jira/config.json` — client configs hold no secrets.
+Claude Desktop's config path is per-OS:
+
+| OS | Claude Desktop config |
+|---|---|
+| Linux | `~/.config/Claude/claude_desktop_config.json` (or `$XDG_CONFIG_HOME/Claude/`) |
+| macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
+
+The installer registers the current interpreter — a PyInstaller binary when
+you run the released executable (`./mcp-jira install`), or
+`[sys.executable, "-m", "mcp_jira"]` when you run `uv run mcp-jira install`
+from the virtualenv — so the registered command stays valid regardless of the
+working directory. Existing servers and keys are merged, never overwritten; a
+`.bak` copy is created before the first write to each file; re-running
+reports "already registered" and leaves the configs unchanged. Without a
+terminal it prints guidance and exits non-zero. The PAT stays in the per-OS
+config file above — client configs hold no secrets.
 
 ### Manual registration
 
-Equivalent JSON to add by hand if you skip the installer. Use your venv's
-`python` from `uv run python -c "import sys; print(sys.executable)"`.
+Equivalent JSON to add by hand if you skip the installer. Replace the command
+with your real interpreter: the binary you downloaded (for release installs),
+or your venv's `python` from `uv run python -c "import sys; print(sys.executable)"`
+(for source installs).
 
 **OpenCode** — `~/.config/opencode/opencode.json`:
 
@@ -168,12 +218,14 @@ Equivalent JSON to add by hand if you skip the installer. Use your venv's
   "mcp": {
     "mcp-jira": {
       "type": "local",
-      "command": ["/path/to/venv/bin/python", "-m", "mcp_jira"],
+      "command": ["/path/to/mcp-jira-binary"],
       "enabled": true
     }
   }
 }
 ```
+
+For a source install use `["/path/to/venv/bin/python", "-m", "mcp_jira"]`.
 
 **Claude CLI** — `~/.claude.json` (`mcpServers` at the top level):
 
@@ -181,24 +233,29 @@ Equivalent JSON to add by hand if you skip the installer. Use your venv's
 {
   "mcpServers": {
     "mcp-jira": {
-      "command": "/path/to/venv/bin/python",
-      "args": ["-m", "mcp_jira"]
+      "command": "/path/to/mcp-jira-binary"
     }
   }
 }
 ```
 
-**Claude Desktop** — `~/.config/Claude/claude_desktop_config.json`:
+For a source install use `"command": "/path/to/venv/bin/python"` with
+`"args": ["-m", "mcp_jira"]`.
+
+**Claude Desktop** — config path per-OS (see table above):
 
 ```json
 {
   "mcpServers": {
     "mcp-jira": {
-      "command": "/path/to/venv/bin/python",
-      "args": ["-m", "mcp_jira"]
+      "command": "/path/to/mcp-jira-binary"
     }
   }
 }
+```
+
+For a source install use `"command": "/path/to/venv/bin/python"` with
+`"args": ["-m", "mcp_jira"]`.
 ```
 
 After editing, restart the client so it spawns the server with the new entry.

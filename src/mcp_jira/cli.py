@@ -26,7 +26,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="MCP stdio server for self-hosted Jira Data Center.",
     )
     subparsers = parser.add_subparsers(dest="command", metavar="COMMAND")
-    subparsers.add_parser("setup", help="interactively write ~/.config/mcp-jira/config.json")
+    subparsers.add_parser("setup", help="interactively write the per-OS config file")
     subparsers.add_parser("install", help="register mcp-jira into OpenCode/Claude configs")
     return parser
 

@@ -106,7 +106,7 @@ MESSAGES: dict[str, Mapping[str, str]] = {
     "en": EN_MESSAGES,
     "es": {
         "CONFIG_MISSING": (
-            "Falta configuración. Ejecuta `mcp-jira setup` o crea `~/.config/mcp-jira/config.json`."
+            "Falta configuración. Ejecuta `mcp-jira setup` o crea el archivo de configuración."
         ),
         "CONFIG_INVALID": (
             "Configuración no válida: {detail}. Corrige la configuración o vuelve "

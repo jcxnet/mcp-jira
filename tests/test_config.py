@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
+import os
+from pathlib import Path
 
 import pytest
 
-from mcp_jira.config import Settings, load_config
+from mcp_jira import platform
+from mcp_jira.config import Settings, default_config_path, load_config
 from mcp_jira.errors import JiraError
 
 
@@ -34,6 +37,30 @@ def test_missing_file_raises_config_missing(tmp_path) -> None:
     with pytest.raises(JiraError) as exc:
         load_config(tmp_path / "nope.json", env={})
     assert exc.value.code == "CONFIG_MISSING"
+
+
+def test_default_config_path_linux(monkeypatch) -> None:
+    monkeypatch.setattr(platform, "is_windows", lambda: False)
+    monkeypatch.setattr(platform, "is_macos", lambda: False)
+    home = Path("/home/u")
+    monkeypatch.setattr(Path, "home", lambda: home)
+    assert default_config_path() == home / ".config/mcp-jira/config.json"
+
+
+def test_default_config_path_macos(monkeypatch) -> None:
+    monkeypatch.setattr(platform, "is_windows", lambda: False)
+    monkeypatch.setattr(platform, "is_macos", lambda: True)
+    home = Path("/Users/u")
+    monkeypatch.setattr(Path, "home", lambda: home)
+    assert default_config_path() == home / "Library/Application Support/mcp-jira/config.json"
+
+
+def test_default_config_path_windows(monkeypatch) -> None:
+    monkeypatch.setattr(platform, "is_windows", lambda: True)
+    monkeypatch.setattr(platform, "is_macos", lambda: False)
+    monkeypatch.setattr(Path, "home", lambda: Path("C:/Users/u"))
+    monkeypatch.setattr(os, "environ", {"APPDATA": "C:/Users/u/AppData/Roaming"}, raising=False)
+    assert default_config_path() == Path("C:/Users/u/AppData/Roaming/mcp-jira/config.json")
 
 
 def test_malformed_json_raises_config_invalid(tmp_path) -> None:

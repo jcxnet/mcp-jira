@@ -21,30 +21,39 @@ import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
+from mcp_jira.platform import (
+    claude_desktop_config_path,
+    is_windows,
+    server_command,
+)
+
 _GUIDANCE = (
     "Run `mcp-jira install` on a terminal to register mcp-jira into MCP "
     "clients (OpenCode global, Claude CLI user scope, Claude Desktop)."
 )
 
 # (client id, display label, config container key, entry to register)
+# The entry command comes from platform.server_command(): the bare frozen
+# binary when running under PyInstaller, `python -m mcp_jira` otherwise.
+_SERVER_CMD = server_command()
 _TARGETS: tuple[tuple[str, str, str, dict], ...] = (
     (
         "opencode",
         "OpenCode (global)",
         "mcp",
-        {"type": "local", "command": [sys.executable, "-m", "mcp_jira"], "enabled": True},
+        {"type": "local", "command": _SERVER_CMD, "enabled": True},
     ),
     (
         "claude",
         "Claude CLI (user scope)",
         "mcpServers",
-        {"command": sys.executable, "args": ["-m", "mcp_jira"]},
+        {"command": _SERVER_CMD[0], "args": _SERVER_CMD[1:]},
     ),
     (
         "desktop",
         "Claude Desktop",
         "mcpServers",
-        {"command": sys.executable, "args": ["-m", "mcp_jira"]},
+        {"command": _SERVER_CMD[0], "args": _SERVER_CMD[1:]},
     ),
 )
 
@@ -87,7 +96,8 @@ def write_with_backup(path: Path, data: dict) -> None:
         shutil.copy2(path, bak)
     tmp = path.with_name(path.name + ".tmp")
     tmp.write_text(json.dumps(data, indent=2) + "\n")
-    os.chmod(tmp, mode)
+    if not is_windows():
+        os.chmod(tmp, mode)
     os.replace(tmp, path)
     try:
         json.loads(path.read_text())
@@ -100,7 +110,11 @@ def write_with_backup(path: Path, data: dict) -> None:
 
 
 def probe_desktop_dir(home: Path) -> Path:
-    """Return ``~/.config/Claude`` when it exists, else lowercase, else default."""
+    """Return ``~/.config/Claude`` when it exists, else lowercase, else default.
+
+    Linux-only helper retained for tests; macOS/Windows use
+    :func:`mcp_jira.platform.claude_desktop_config_path`.
+    """
     for name in ("Claude", "claude"):
         candidate = home / ".config" / name
         if candidate.is_dir():
@@ -109,12 +123,18 @@ def probe_desktop_dir(home: Path) -> Path:
 
 
 def default_config_paths() -> dict[str, Path]:
-    """Real target paths: OpenCode global, Claude CLI user, Claude Desktop."""
+    """Real target paths: OpenCode global, Claude CLI user, Claude Desktop.
+
+    Per-OS: Claude Desktop resolves through
+    :func:`mcp_jira.platform.claude_desktop_config_path` (Windows APPDATA,
+    macOS Application Support, Linux XDG); OpenCode and Claude CLI are
+    home-relative on all three platforms.
+    """
     home = Path.home()
     return {
         "opencode": home / ".config/opencode/opencode.json",
         "claude": home / ".claude.json",
-        "desktop": probe_desktop_dir(home) / "claude_desktop_config.json",
+        "desktop": claude_desktop_config_path(home),
     }
 
 

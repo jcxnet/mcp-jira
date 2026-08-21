@@ -1,10 +1,10 @@
 """Config loading for mcp-jira: file + env override + fail-fast validation.
 
-File must exist at ``~/.config/mcp-jira/config.json`` (``CONFIG_MISSING``
-otherwise). ``JIRA_URL``/``JIRA_PAT`` env vars override the file values when
-set; ``language``/``read_only`` are file-only settings. Unknown ``language``
-falls back to ``en``. A group/world-readable config file logs a warning to
-stderr and still loads.
+File must exist in the per-OS config dir (``CONFIG_MISSING`` otherwise) — see
+:func:`mcp_jira.platform.config_dir`. ``JIRA_URL``/``JIRA_PAT`` env vars
+override the file values when set; ``language``/``read_only`` are file-only
+settings. Unknown ``language`` falls back to ``en``. A group/world-readable
+config file logs a warning to stderr and still loads.
 """
 
 from __future__ import annotations
@@ -17,15 +17,15 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from mcp_jira.errors import EN_MESSAGES, JiraError
+from mcp_jira.platform import config_dir, is_windows
 
 SUPPORTED_LANGUAGES = ("en", "es")
-_CONFIG_SUBDIR = ".config/mcp-jira"
 _CONFIG_FILE = "config.json"
 
 
 def default_config_path() -> Path:
-    """Return ``~/.config/mcp-jira/config.json`` (server-config §schema)."""
-    return Path.home() / _CONFIG_SUBDIR / _CONFIG_FILE
+    """Return the per-OS config file path (server-config §schema)."""
+    return config_dir() / _CONFIG_FILE
 
 
 @dataclass(frozen=True)
@@ -77,7 +77,12 @@ def _invalid(detail: str) -> str:
 
 
 def _warn_if_shared(path: Path) -> None:
-    """Warn (not block) when the config file is group/world-readable."""
+    """Warn (not block) when the config file is group/world-readable.
+
+    Windows has no POSIX mode bits, so the check only runs on POSIX.
+    """
+    if is_windows():
+        return
     mode = path.stat().st_mode & 0o777
     if mode & 0o044:
         print(

@@ -48,6 +48,7 @@ from mcp_jira.installer import (
     default_config_paths,
     write_with_backup,
 )
+from mcp_jira.platform import is_windows
 from mcp_jira.wizard import _REQUIRED_MSG, _valid_url, _write_config
 
 if TYPE_CHECKING:
@@ -250,7 +251,11 @@ class SetupApp(_AbortMixin, App[int]):
         except OSError as exc:
             self.push_screen(ResultScreen(1, f"Failed to write config: {exc}"))
             return
-        self.push_screen(ResultScreen(0, f"Config written to {self._config_path} (mode 600)."))
+        self.push_screen(
+            ResultScreen(0, f"Config written to {self._config_path} (mode 600).")
+            if not is_windows()
+            else ResultScreen(0, f"Config written to {self._config_path}.")
+        )
 
 
 class InstallApp(_AbortMixin, App[int]):
